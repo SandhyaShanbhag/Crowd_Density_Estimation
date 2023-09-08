@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="ttmc.css">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <title>TTMC</title>
+</head>
+
+<body>
+  <h1>Details</h1>
+  <div class="content">
+    <div class="subc">
+      <iframe width="745" height="260" style="border: 1px solid #cccccc;"
+        src="https://thingspeak.com/channels/1773434/charts/1?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&update=15"></iframe>
+    </div>
+    <div class="subc">
+      <iframe width="745" height="260" style="border: 1px solid #cccccc;"
+        src="https://thingspeak.com/channels/1773434/charts/2?bgcolor=%23ffffff&color=%23d62020&dynamic=true&results=60&type=line&update=15"></iframe>
+    </div>
+  </div>
+  <div class="pick" style="padding-top:50px;padding-left:90px;">
+    <button type="button" class="btn btn-success" onclick="window.open('./Jpickup.php','_self')">Pick Me</button>
+  </div>
+  <div class="back">
+    <button type="button" class="btn btn-outline-secondary" onclick="window.open('./cust.html','_self')">Back</button>
+  </div>
+  <h2 style="text-align: center;color:white;font-weight: bolder;">Travel Time</h2>
+  <div class="dist">
+    <form action="">
+      <label for="">Source: </label>
+      <select name="source" id="source">
+        <option value="jaynagar">Jpnagar</option>
+      </select>
+      <label for="" style="margin-left: 5px;">Destination: </label>
+      <select name="destination" id="destination" onchange="check();">
+        <option value=""></option>
+        <option value="1">Lalbagh</option>
+        <option value="2">Chikpete</option>
+        <option value="3">Jayanagar</option>
+        <option value="4">Banashankari</option>
+        <option value="5">Majestic</option>
+      </select>
+      <br>
+      <label for="time">Time:</label>
+      <input type="text" name="time" id="time" disabled>
+    </form>
+  </div>
+</body>
+<script>
+  function check() {
+    var destination = document.getElementById('destination');
+    var frm = document.getElementById('time');
+    const time = ['20.3 Mins', '9.1 Mins', '25.4 Mins', '7.99 Mins', '5.98 Mins'];
+    var index = destination.value;
+    var stime = time[index - 1];
+    frm.setAttribute('Value', stime);
+  }
+</script>
+
+</html>

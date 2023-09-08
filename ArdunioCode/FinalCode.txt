@@ -1,0 +1,135 @@
+#include<ESP8266WiFi.h>
+#include<ThingSpeak.h>
+#include<WiFiClient.h>
+
+
+WiFiClient client ;
+char ssid[]="VenkatChavan";
+char password[]="12345678";
+char WriteApi_Key[]="52LTLT9Z8O1ZT8I8";
+unsigned long ChannelId=1773434;
+int counter = 0;
+#define inSensor 14
+#define outSensor 12
+char station1[]="majestic";
+char station2[]="Chickpet";
+char station3[]="Lalbagh";
+char station4[]="Jaynagar";
+#define relay 0
+ 
+int inStatus;
+int outStatus;
+ 
+int countin = 0;
+int countout = 0;
+ 
+int in;
+int out;
+int now;
+void setup() {
+  // put your setup code here, to run once:   
+  Serial.begin(9600);
+  delay(10);
+  WiFi.begin(ssid,password);
+  while(WiFi.status()!=WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+    }
+  Serial.println("Connected");
+  ThingSpeak.begin(client);
+  Serial.begin(115200);
+  pinMode(inSensor, INPUT);
+  pinMode(outSensor, INPUT);
+  pinMode(relay, OUTPUT);
+  digitalWrite(relay, HIGH);
+  Serial.println("Crowd Density Demo");
+  delay(3000);
+ 
+}
+
+void loop() {
+ 
+  inStatus =  digitalRead(inSensor);
+  outStatus = digitalRead(outSensor);
+  if (inStatus == 0)
+  {
+    in = countin++;
+  }
+ 
+  if (outStatus == 0)
+  {
+    out = countout++;
+  }
+ 
+  now = in - out;
+if (now <= 0)
+  {
+ Serial.println("No Persons!Bus empty");
+digitalWrite(relay, HIGH);
+}
+else
+  {
+    digitalWrite(relay, LOW);
+Serial.print("Current Crowd Density : ");
+    Serial.println(now);
+    // if (in <= 5){
+    Serial.print("IN: ");
+   
+    Serial.println(in);
+    //}
+    //if (out <= 5){
+    Serial.print("OUT: ");
+    
+    Serial.println(out);
+    //}
+    delay(500);
+  }
+  if(now<=5){
+      Serial.println("Jaynagar");
+      delay(100);
+      //continue;
+    }
+    if(now>5 && now<=10){
+      Serial.println("Lalbagh");
+      delay(100);
+      //continue;
+    }
+    if(now>10 && now<=15){
+      Serial.println("Chickpet");
+      delay(100);
+      //continue;
+    }
+        if(now>15 && now<=20){
+      Serial.println("Majestic");
+      delay(100);
+      //continue;
+    }
+int relaystatus = digitalRead(relay);
+{
+Serial.println();
+  delay(100);
+  // put your main code here, to run repeatedly:
+ float variable= random(25,100);
+  ThingSpeak.writeField(ChannelId, 1,in, WriteApi_Key);
+  ThingSpeak.writeField(ChannelId, 2,out, WriteApi_Key);
+  ThingSpeak.writeField(ChannelId, 3,now, WriteApi_Key);
+ if(now<=5){
+  ThingSpeak.writeField(ChannelId, 4,station4, WriteApi_Key);
+  delay(500);
+ }
+ if(now>5 && now<=10){
+  ThingSpeak.writeField(ChannelId, 4,station3, WriteApi_Key);
+  delay(500);
+ }
+ if(now>10 && now<=15){
+  ThingSpeak.writeField(ChannelId, 4,station2, WriteApi_Key);
+  delay(500);
+ }
+ if(now>15 && now<=20){
+  ThingSpeak.writeField(ChannelId, 4,station1, WriteApi_Key);
+  delay(500);
+ }
+  
+}
+}

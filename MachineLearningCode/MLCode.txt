@@ -1,0 +1,221 @@
+!pip install haversine
+!pip install xgboost
+!pip install dython
+!pip install sklearn
+
+pip uninstall sklearn
+
+pip install -U scikit-learn
+
+import io
+from google.colab import files
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+from pandas.plotting import scatter_matrix
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
+from haversine import haversine
+from sklearn.ensemble import RandomForestRegressor,ExtraTreesRegressor,_forest
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+from haversine import haversine
+from dython.nominal import associations
+from sklearn.utils import shuffle
+
+uploaded = files.upload()
+
+data = pd.read_csv(io.StringIO(uploaded['data_new.csv'].decode('utf-8')),parse_dates=['datetime'])
+data.head()
+
+def cartesian_product_basic(left, right):
+    return (left.assign(key=1).merge(right.assign(key=1), on='key').drop('key', 1))
+  
+temp = []
+for keys, group in groups:
+  #computing cartesian product of differents group and store it in temp variable
+  temp.append(cartesian_product_basic(group, group))
+
+#create a dataframe to store the dataset
+dataset = pd.DataFrame(data=temp[0])
+i = 1
+while i<len(temp):
+  df = pd.DataFrame(data = temp[i])
+  dataset = pd.concat([dataset,df],axis=0,ignore_index=True)
+  i = i + 1 
+  
+dataset.head()
+
+columns = {'latitude_x':'pickup_lat','longitude_x':'pickup_long','speed_x':'speed','datetime_x':'pickup_datetime','trackingId_x':'trackingId',
+            'company_x':'company','line_x':'line','latitude_y':'dropoff_lat','longitude_y':'dropoff_long','datetime_y':'dropoff_datetime'}
+dataset.rename(columns=columns, inplace=True)
+dataset.head()
+
+columns= ['speed_y','trackingId_y','company_y','line_y']
+dataset = dataset.drop(columns,axis=1)
+dataset.head()
+
+dataset.isnull().sum()
+
+dataset['trip_duration'] = (dataset['dropoff_datetime'] - dataset['pickup_datetime']).dt.total_seconds()
+#filter result by taking only positive records
+dataset = dataset.query('trip_duration > 0')
+
+dataset.head()
+
+def add_datepart(df, fldname, drop=True):
+    fld = df[fldname]
+    '''if not np.issubdtype(fld.dtypes, np.datetime64):
+        df[fldname] = fld = pd.to_datetime(fld,infer_datetime_format=True)'''
+    for n in ('month','day','hour','minute', 'weekday', 
+              'is_month_end', 'is_month_start'):
+        df[n] = getattr(fld.dt,n)
+    if drop: df.drop(fldname, axis=1, inplace=True)
+      
+add_datepart(dataset,'pickup_datetime',drop=False)
+
+dataset.head()
+
+dataset['is_weekend'] = dataset['weekday']
+dataset['is_weekend'] = dataset['is_weekend'].map({0:False,1:False,2:False,3:False,4:False,5:True,6:True})
+dataset.head()
+
+dataset.loc[:,'pickup_latlong'] = dataset[['pickup_lat', 'pickup_long']].apply(tuple, axis=1)
+dataset.loc[:,'dropoff_latlong'] = dataset[['dropoff_lat', 'dropoff_long']].apply(tuple, axis=1)
+haversine_dist = []
+for index,rows in dataset.iterrows():
+  temp = haversine(dataset['pickup_latlong'][index],dataset['dropoff_latlong'][index])
+  haversine_dist.append(temp)
+#create the column to store the result  
+dataset = dataset.assign(haversine_dist=haversine_dist)
+
+dataset.head()
+
+dataset = dataset.query('hour < 22 and hour > 6')
+columns = ['pickup_datetime',	'trackingId',	'company','line','dropoff_datetime','pickup_latlong',	'dropoff_latlong']
+dataset = dataset.drop(columns=columns,axis=1)
+dataset.head()
+
+X_train, X_test, y_train, y_test = train_test_split(dataset, dataset['trip_duration'], test_size=0.15, random_state=42)
+X_train, X_valid, y_train, y_valid = train_test_split(X_train, y_train, test_size=0.15, random_state=42)
+print('Training features Shape:', X_train.shape)
+print('Training labels Shape:', y_train.shape)
+print('Validation features Shape:', X_valid.shape)
+print('Validation labels Shape:', y_valid.shape)
+print('Testing featuresShape:', X_test.shape)
+print('Testing labels Shape:', y_test.shape)
+
+train_labels = np.array(y_train)
+
+#features represent the predictors also named independant variables
+train_features = X_train.drop(['trip_duration'],axis=1)
+
+#save the features list 
+features_list = list(train_features)
+
+#convert to numpy array
+train_features = np.array(train_features)
+
+dtrain = xgb.DMatrix(train_features, label=train_labels)
+dvalid = xgb.DMatrix(X_valid.drop('trip_duration',axis=1).values)
+evals = [(dtrain, 'train')]
+params = {
+        'min_child_weight': 1, 'eta': 0.11,
+        'colsample_bytree':0.2,'max_depth': 8,
+        'subsample': 0.5,'lambda':0.4,
+        'booster': 'gbtree', 'gamma': 0.6,
+        'eval_metric':'rmse',
+        'objective': 'reg:linear','n_estimators':20,
+        'n_jobs':-1,'base_score':0.5
+    }
+
+#validation features
+valid_features = X_valid.drop('trip_duration',axis=1)
+
+models = []
+models.append(('MultiLinearRegression', LinearRegression()))
+models.append(('Random Forest', RandomForestRegressor(n_estimators=20 , min_samples_leaf=25, max_features=0.5, n_jobs=-1)))
+models.append(('ExtaTreeRegressor', ExtraTreesRegressor(n_estimators=20, bootstrap=True, min_samples_leaf=25, max_features='auto', n_jobs=-1)))
+models.append(('XGBoost',xgb))
+
+results = []
+names = []
+for name, model in models:
+ if(name=='XGBoost'):
+   model= model.train(params=params, dtrain=dtrain, num_boost_round=227,evals=evals, early_stopping_rounds=300,maximize=False,verbose_eval=20)
+   predictions = model.predict(dvalid)
+ else:
+    model.fit(train_features,train_labels)
+    predictions = model.predict(valid_features)
+ result = r2_score(y_valid,predictions)
+ results.append(result)
+ names.append(name)
+
+name = pd.DataFrame(data=names,columns=['Model'],index=[0,1,2,3])
+score = pd.DataFrame(data=results,columns=['Score'],index=[0,1,2,3])
+model_score = pd.concat([name,score],axis=1)
+model_score['Score'] = model_score['Score']*100
+model_score
+
+X_test.head()
+
+X_test = pd.DataFrame(data=[['12.92953093',	'-77.58017063'	,'12.00000',	'12.94650176',	'-77.58003116',	'6',	'24',	'16',	'45',	'2'	,False,	True	,False	,'14.568124']],
+                      columns=X_valid.drop(['trip_duration'],axis=1).columns)
+dtest = xgb.DMatrix(X_test.values)
+predictions = model.predict(dtest)
+prediction_df = pd.DataFrame(data=predictions,columns=['trip_duration'])
+prediction_df = prediction_df/60
+prediction_df.head()
+
+uploaded=files.upload()
+import pandas as pd
+
+df = pd.read_csv('testing.csv')
+
+print(df.to_string())
+
+import pandas as pd
+df = pd.read_csv('testing.csv', delimiter=',')
+
+list_of_csv = [list(row) for row in df.values]
+
+print(list_of_csv) 
+
+import csv
+lst=[]
+for i in list_of_csv:
+  X_test=i
+  dtest = xgb.DMatrix(X_test)
+  predictions = model.predict(dtest)
+  prediction_df = pd.DataFrame(data=predictions,columns=['trip_duration'])
+  prediction_df = prediction_df/60
+  lst.append(prediction_df.values)
+  print(prediction_df)
+print(lst)
+
+uploaded = files.upload()
+
+import pandas as pd
+
+df = pd.read_csv('pro.csv')
+
+print(df.to_string())
+
+import pandas as pd
+
+lis = lst
+df = pd.read_csv('pro.csv')
+df['trip_duration'] = lis
+df.to_csv('modified_data.csv')
+
+import pandas as pd
+
+df = pd.read_csv('modified_data.csv')
+
+print(df.to_string()) 
+
+df.to_csv('modified_data.csv') 
+
+from google.colab import files
+files.download('modified_data.csv')
+

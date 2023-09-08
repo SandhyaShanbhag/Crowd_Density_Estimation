@@ -1,0 +1,29 @@
+body{
+    background-image: url('./bus-1.jpg');
+    background-size: cover;
+}
+.content table{
+    margin-top: 30px;
+    width: 60%;
+    margin-left:20%;
+    font-size:16px;
+    color: whitesmoke;
+    border-style: outset;
+}
+.content th,td{
+    border: 1px solid;
+    border-collapse: collapse;
+    border-color: black;
+    text-align: center;
+}
+.content th{
+    background-color: #000000;
+}
+.content td{
+    background-color:#c3c3c3;
+    color: black;
+}
+.back{
+    margin-top: 10px;
+    margin-left: 50%;
+}
